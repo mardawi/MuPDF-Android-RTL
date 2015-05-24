@@ -1,25 +1,15 @@
 package com.artifex.mupdfdemo;
 
 import android.annotation.TargetApi;
-import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.RectF;
-import android.net.Uri;
 import android.os.Build;
-import android.text.method.PasswordTransformationMethod;
-import android.view.LayoutInflater;
-import android.view.WindowManager;
-import android.view.inputmethod.EditorInfo;
-import android.widget.EditText;
 
 import java.util.ArrayList;
-
-import co.yaqut.yaqutpdf.R;
 
 /* This enum should be kept in line with the cooresponding C enum in mupdf.c */
 enum SignatureState {
@@ -89,7 +79,6 @@ class PassClickResultSignature extends PassClickResult {
 }
 
 public class MuPDFPageView extends PageView implements MuPDFView {
-    final private FilePicker.FilePickerSupport mFilePickerSupport;
     private final MuPDFCore mCore;
     private AsyncTask<Void, Void, PassClickResult> mPassClick;
     private RectF mWidgetAreas[];
@@ -97,144 +86,18 @@ public class MuPDFPageView extends PageView implements MuPDFView {
     private int mSelectedAnnotationIndex = -1;
     private AsyncTask<Void, Void, RectF[]> mLoadWidgetAreas;
     private AsyncTask<Void, Void, Annotation[]> mLoadAnnotations;
-    private AlertDialog.Builder mTextEntryBuilder;
-    private AlertDialog.Builder mChoiceEntryBuilder;
-    private AlertDialog.Builder mSigningDialogBuilder;
-    private AlertDialog.Builder mSignatureReportBuilder;
-    private AlertDialog.Builder mPasswordEntryBuilder;
-    private EditText mPasswordText;
-    private AlertDialog mTextEntry;
-    private AlertDialog mPasswordEntry;
-    private EditText mEditText;
     private AsyncTask<String, Void, Boolean> mSetWidgetText;
     private AsyncTask<String, Void, Void> mSetWidgetChoice;
     private AsyncTask<PointF[], Void, Void> mAddStrikeOut;
     private AsyncTask<PointF[][], Void, Void> mAddInk;
     private AsyncTask<Integer, Void, Void> mDeleteAnnotation;
-    private AsyncTask<Void, Void, String> mCheckSignature;
-    private AsyncTask<Void, Void, Boolean> mSign;
     private Runnable changeReporter;
 
-    public MuPDFPageView(Context c, FilePicker.FilePickerSupport filePickerSupport, MuPDFCore core, Point parentSize, Bitmap sharedHqBm) {
+    public MuPDFPageView(Context c, MuPDFCore core, Point parentSize, Bitmap sharedHqBm) {
         super(c, parentSize, sharedHqBm);
-        mFilePickerSupport = filePickerSupport;
         mCore = core;
-        mTextEntryBuilder = new AlertDialog.Builder(c);
-        mTextEntryBuilder.setTitle(getContext().getString(R.string.fill_out_text_field));
-        LayoutInflater inflater = (LayoutInflater) c.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        mEditText = (EditText) inflater.inflate(R.layout.textentry, null);
-        mTextEntryBuilder.setView(mEditText);
-        mTextEntryBuilder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-            }
-        });
-        mTextEntryBuilder.setPositiveButton(R.string.okay, new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int which) {
-                mSetWidgetText = new AsyncTask<String, Void, Boolean>() {
-                    @Override
-                    protected Boolean doInBackground(String... arg0) {
-                        return mCore.setFocusedWidgetText(mPageNumber, arg0[0]);
-                    }
-
-                    @Override
-                    protected void onPostExecute(Boolean result) {
-                        changeReporter.run();
-                        if (!result)
-                            invokeTextDialog(mEditText.getText().toString());
-                    }
-                };
-
-                mSetWidgetText.execute(mEditText.getText().toString());
-            }
-        });
-        mTextEntry = mTextEntryBuilder.create();
-
-        mChoiceEntryBuilder = new AlertDialog.Builder(c);
-        mChoiceEntryBuilder.setTitle(getContext().getString(R.string.choose_value));
-
-        mSigningDialogBuilder = new AlertDialog.Builder(c);
-        mSigningDialogBuilder.setTitle("Select certificate and sign?");
-        mSigningDialogBuilder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-            }
-        });
-        mSigningDialogBuilder.setPositiveButton(R.string.okay, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                FilePicker picker = new FilePicker(mFilePickerSupport) {
-                    @Override
-                    void onPick(Uri uri) {
-                        signWithKeyFile(uri);
-                    }
-                };
-
-                picker.pick();
-            }
-        });
-
-        mSignatureReportBuilder = new AlertDialog.Builder(c);
-        mSignatureReportBuilder.setTitle("Signature checked");
-        mSignatureReportBuilder.setPositiveButton(R.string.okay, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-            }
-        });
-
-        mPasswordText = new EditText(c);
-        mPasswordText.setInputType(EditorInfo.TYPE_TEXT_VARIATION_PASSWORD);
-        mPasswordText.setTransformationMethod(new PasswordTransformationMethod());
-
-        mPasswordEntryBuilder = new AlertDialog.Builder(c);
-        mPasswordEntryBuilder.setTitle(R.string.enter_password);
-        mPasswordEntryBuilder.setView(mPasswordText);
-        mPasswordEntryBuilder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-            }
-        });
-
-        mPasswordEntry = mPasswordEntryBuilder.create();
     }
 
-    private void signWithKeyFile(final Uri uri) {
-        mPasswordEntry.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
-        mPasswordEntry.setButton(AlertDialog.BUTTON_POSITIVE, "Sign", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-                signWithKeyFileAndPassword(uri, mPasswordText.getText().toString());
-            }
-        });
-
-        mPasswordEntry.show();
-    }
-
-    private void signWithKeyFileAndPassword(final Uri uri, final String password) {
-        mSign = new AsyncTask<Void, Void, Boolean>() {
-            @Override
-            protected Boolean doInBackground(Void... params) {
-                return mCore.signFocusedSignature(Uri.decode(uri.getEncodedPath()), password);
-            }
-
-            @Override
-            protected void onPostExecute(Boolean result) {
-                if (result) {
-                    changeReporter.run();
-                } else {
-                    mPasswordText.setText("");
-                    signWithKeyFile(uri);
-                }
-            }
-
-        };
-
-        mSign.execute();
-    }
 
     public LinkInfo hitLink(float x, float y) {
         // Since link highlighting was implemented, the super class
@@ -250,65 +113,6 @@ public class MuPDFPageView extends PageView implements MuPDFView {
                 return l;
 
         return null;
-    }
-
-    private void invokeTextDialog(String text) {
-        mEditText.setText(text);
-        mTextEntry.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
-        mTextEntry.show();
-    }
-
-    private void invokeChoiceDialog(final String[] options) {
-        mChoiceEntryBuilder.setItems(options, new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int which) {
-                mSetWidgetChoice = new AsyncTask<String, Void, Void>() {
-                    @Override
-                    protected Void doInBackground(String... params) {
-                        String[] sel = {params[0]};
-                        mCore.setFocusedWidgetChoiceSelected(sel);
-                        return null;
-                    }
-
-                    @Override
-                    protected void onPostExecute(Void result) {
-                        changeReporter.run();
-                    }
-                };
-
-                mSetWidgetChoice.execute(options[which]);
-            }
-        });
-        AlertDialog dialog = mChoiceEntryBuilder.create();
-        dialog.show();
-    }
-
-    private void invokeSignatureCheckingDialog() {
-        mCheckSignature = new AsyncTask<Void, Void, String>() {
-            @Override
-            protected String doInBackground(Void... params) {
-                return mCore.checkFocusedSignature();
-            }
-
-            @Override
-            protected void onPostExecute(String result) {
-                AlertDialog report = mSignatureReportBuilder.create();
-                report.setMessage(result);
-                report.show();
-            }
-        };
-
-        mCheckSignature.execute();
-    }
-
-    private void invokeSigningDialog() {
-        AlertDialog dialog = mSigningDialogBuilder.create();
-        dialog.show();
-    }
-
-    private void warnNoSignatureSupport() {
-        AlertDialog dialog = mSignatureReportBuilder.create();
-        dialog.setTitle("App built with no signature support");
-        dialog.show();
     }
 
     public void setChangeReporter(Runnable reporter) {
@@ -367,33 +171,6 @@ public class MuPDFPageView extends PageView implements MuPDFView {
                     if (result.changed) {
                         changeReporter.run();
                     }
-
-                    result.acceptVisitor(new PassClickResultVisitor() {
-                        @Override
-                        public void visitText(PassClickResultText result) {
-                            invokeTextDialog(result.text);
-                        }
-
-                        @Override
-                        public void visitChoice(PassClickResultChoice result) {
-                            invokeChoiceDialog(result.options);
-                        }
-
-                        @Override
-                        public void visitSignature(PassClickResultSignature result) {
-                            switch (result.state) {
-                                case NoSupport:
-                                    warnNoSignatureSupport();
-                                    break;
-                                case Unsigned:
-                                    invokeSigningDialog();
-                                    break;
-                                case Signed:
-                                    invokeSignatureCheckingDialog();
-                                    break;
-                            }
-                        }
-                    });
                 }
             };
 

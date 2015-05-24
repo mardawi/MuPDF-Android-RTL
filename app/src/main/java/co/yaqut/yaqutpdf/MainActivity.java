@@ -18,7 +18,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 
-public class MainActivity extends ActionBarActivity implements FilePicker.FilePickerSupport {
+public class MainActivity extends ActionBarActivity {
 
     private static final String TAG = MainActivity.class.getSimpleName();
     private MuPDFCore mCore;
@@ -46,7 +46,7 @@ public class MainActivity extends ActionBarActivity implements FilePicker.FilePi
             @Override
             protected String doInBackground(Void... params) {
                 try {
-                    mTempFile = File.createTempFile("prefix", "extension", getCacheDir());
+                    mTempFile = File.createTempFile("cached", ".data", getCacheDir());
                     OutputStream out = new FileOutputStream(mTempFile);
                     InputStream in = getAssets().open("sample.pdf");
                     byte[] buff = new byte[2048];
@@ -106,16 +106,15 @@ public class MainActivity extends ActionBarActivity implements FilePicker.FilePi
 
             }
         };
-        mDocView.setAdapter(new MuPDFPageAdapter(this, this, mCore));
+
+        mDocView.setAdapter(new MuPDFPageAdapter(this, mCore, MuPDFPageAdapter.DIRECTION_RTL));
+        // For RTL. Start at the end. The adapter will take care of the rest
+        mDocView.setDisplayedViewIndex(mCore.countPages() - 1);
+
         // Stick the document view and the buttons overlay into a parent view
         RelativeLayout layout = new RelativeLayout(this);
         layout.addView(mDocView);
         setContentView(layout);
     }
 
-    @Override
-    public void performPickFor(FilePicker picker) {
-
-        Log.i(TAG, "performPickFor");
-    }
 }
