@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">YaqutPDF</string>
+    <string name="title_activity_main">MainActivity</string>
+
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+    <string name="searching_">Searching ...</string>
+    <string name="text_not_found">Text not found</string>
+    <string name="no_further_occurrences_found">No further occurrences found</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="fill_out_text_field">Fill out text field</string>
+    <string name="cancel">cancel</string>
+    <string name="okay">Ok</string>
+    <string name="choose_value">choose value</string>
+    <string name="enter_password">Enter Password</string>
+</resources>
